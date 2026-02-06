@@ -71,7 +71,7 @@ jobs:
       - name: Run tests
         run: |
           echo "Running pytest..."
-          pytest pytest -n auto --output test-results
+          pytest -n auto --output test-results
 
       - name: Upload test results artifact
         if: always()

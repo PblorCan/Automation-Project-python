@@ -1,0 +1,80 @@
+name: Playwright (Python) — test & run
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Playwright tests on ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.10, 3.11]
+
+    env:
+      # Where Playwright will store browser binaries (inside workspace so we can cache them)
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.workspace }}/.playwright
+      # Example test command — you can change this to your preferred run command
+      # e.g. "pytest tests --workers auto --output test-results"
+      TEST_COMMAND: pytest --maxfail=1 --disable-warnings -q --workers auto --output test-results
+      # mark CI environment variable (many libs rely on this)
+      CI: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache Playwright browsers
+        # caches the directory where browsers are downloaded (PLAYWRIGHT_BROWSERS_PATH)
+        uses: actions/cache@v4
+        with:
+          path: .playwright
+          key: ${{ runner.os }}-playwright-browsers-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-browsers-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # If you use poetry, uncomment lines below and comment the pip line above:
+          # pip install poetry
+          # poetry install --no-root
+        # optionally set a timeout or echo for debug
+
+      - name: Install Playwright browsers
+        # For Playwright 1.x Python, use `playwright install` (or `playwright install --with-deps`)
+        # Installing browsers is idempotent and will use $PLAYWRIGHT_BROWSERS_PATH set above.
+        run: |
+          python -m playwright install --with-deps
+
+      - name: Run tests
+        # uses the TEST_COMMAND env var declared above; change TEST_COMMAND if needed
+        run: |
+          echo "Running: $TEST_COMMAND"
+          $TEST_COMMAND
+
+      - name: Upload test results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-${{ matrix.python-version }}
+          path: test-results/

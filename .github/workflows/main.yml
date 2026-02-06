@@ -1,0 +1,81 @@
+name: Playwright (Python) — test & run
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Playwright tests on ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # change these to the Python versions you want to support
+        python-version: [3.12, 3.13] 
+
+    env:
+      # keep browsers inside workspace so the cache action can cache them
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
+      CI: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: .playwright
+          key: ${{ runner.os }}-playwright-browsers-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-browsers-
+
+      - name: Install Python dependencies
+        run: |
+          set -e
+          python -m pip install --upgrade pip setuptools wheel
+          if [ -f requirements.txt ]; then
+            echo "Installing from requirements.txt"
+            pip install -r requirements.txt
+          else
+            echo "No requirements.txt found — installing essential packages"
+            pip install playwright pytest pytest-playwright
+          fi
+
+          # Ensure Playwright is actually installed (helps debug "No module named playwright")
+          echo "=== pip freeze ==="
+          pip freeze
+
+      - name: Install Playwright browsers
+        run: |
+          # This requires the `playwright` package to be installed above
+          python -m playwright install --with-deps
+
+      - name: Run tests
+        run: |
+          echo "Running pytest..."
+          pytest --maxfail=1 --disable-warnings -q --workers auto --output test-results
+
+      - name: Upload test results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-${{ matrix.python-version }}
+          path: test-results/

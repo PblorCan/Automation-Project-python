@@ -20,3 +20,10 @@ class HomePage:
 
     def open(self):
         self.page.goto(self.URL)
+        # Manejar popup de ubicación si aparece
+        try:
+            mantener_btn = self.page.get_by_role("button", name="Mantener ubicación")
+            if mantener_btn.is_visible(timeout=5000):
+                mantener_btn.click()
+        except:
+            pass

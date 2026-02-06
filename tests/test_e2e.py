@@ -28,20 +28,29 @@ def test_buy_product_as_guest(home_page: HomePage, step_report):
     #calcular el precio final
     final_price = price * quantity
 
-    #agregar al carrito
+    # agregar al carrito
     step_report.step("Agregar al carrito", lambda: home_page.item.add_to_cart_button.click())
 
-    #tomar valor de la cantidad del producto en el modal
-    modal_quantity_text = home_page.item.modal_quantity.text_content()
+    # Pequeña espera para permitir que la redirección o el modal ocurran
+    home_page.page.wait_for_timeout(3000)
 
-    #separar el texto del numero y pasar a int
-    modal_quantity = int(modal_quantity_text.split(":")[1].strip())
+    # Verificar si redirigió al carrito o si hay un modal
+    if "cart" in home_page.page.url:
+        # Si ya estamos en el carrito, el botón de ir a pagar está en el objeto 'car'
+        step_report.step("Click en ir a pagar (desde el carrito)", lambda: home_page.car.go_to_pay_button.click())
+    else:
+        # Si hay un modal, seguimos el flujo original
+        # tomar valor de la cantidad del producto en el modal
+        modal_quantity_text = home_page.item.modal_quantity.text_content()
+        # separar el texto del numero y pasar a int
+        modal_quantity = int(modal_quantity_text.split(":")[1].strip())
+        # click en ir a pagar
+        step_report.step("Click en ir a pagar (desde el modal)", lambda: home_page.item.go_to_pay_button.click())
 
-     #click en ir a pagar
-    step_report.step("Click en ir a pagar", lambda: home_page.item.go_to_pay_button.click())
-
-    # click btn ir a pagar
-    step_report.step("Click en ir a pagar", lambda: home_page.checkout.go_to_pay_button.click())
+    # click btn continuar como invitado (en la página de login/checkout)
+    # Esperar a que la página cargue para encontrar el botón de invitado
+    home_page.page.wait_for_load_state("networkidle")
+    step_report.step("Click en continuar como invitado", lambda: home_page.checkout.continue_as_guest_button.click())
 
     # completar informacion del cliente
     step_report.step("Completar informacion del cliente, primer nombre", lambda: home_page.checkout.first_name.fill("pablo"))
